@@ -205,7 +205,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 
 func (m *mqttClient) publish(topic, payload string) {
 	if cache := m.mqttData[topic]; cache != payload {
-		m.client.Publish(m.topic(topic), 0, false, payload)
+		m.client.Publish(m.topic(topic), 2, false, payload)
 		m.mqttData[topic] = payload
 	}
 }
@@ -325,6 +325,7 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 		return err
 	}
 	m.publish("/available", "online")
+	m.client.Publish(m.topic("/available"), 2, true, "online")
 	defer func() {
 		m.lastConnect = time.Now()
 	}()
@@ -552,6 +553,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		"unit_of_measurement": "%",
 		"avty_t": "~/available",
 		"unique_id": "__VIN___battery_level",
+		"value_template": "{{ value_json if (value_json < 95 and value_json > 5) else states(entity_id) }}",
 		"dev": {
 			"name": "PHEV __VIN__",
 			"identifiers": ["phev-__VIN__"],
@@ -719,7 +721,6 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		"icon": "mdi:timer-off",
 		"command_topic": "~/connection",
 		"payload_press": "restart",
-		"avty_t": "~/available",
 		"unique_id": "__VIN___restart_wifi",
 		"dev": {
 			"name": "PHEV __VIN__",
@@ -739,7 +740,7 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		for in, out := range mappings {
 			d = strings.Replace(d, in, out, -1)
 		}
-		m.client.Publish(topic, 0, false, d)
+		m.client.Publish(topic, 1, true, d)
 		//m.client.Publish(topic, 0, false, "{}")
 	}
 }
