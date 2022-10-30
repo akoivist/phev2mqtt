@@ -607,7 +607,9 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		"%s/switch/%s_cancel_charge_timer/config": `{
 		"name": "__NAME__ Disable Charge Timer",
 		"icon": "mdi:timer-off",
-		"state_topic": "~/battery/charging",
+		"state_topic": "~/charge/charging",
+		"payload_off": "off",
+		"payload_on": "on",
 		"command_topic": "~/set/cancelchargetimer",
 		"avty_t": "~/available",
 		"unique_id": "__VIN___cancel_charge_timer",
