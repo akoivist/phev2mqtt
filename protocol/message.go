@@ -524,11 +524,11 @@ func (r *RegisterACMode) Decode(m *PhevMessage) {
 	switch m.Data[0] {
 	case 0:
 		r.Mode = "unknown"
-	case 1:
+	case 1, 0x11:
 		r.Mode = "cool"
-	case 2:
+	case 2, 0x12:
 		r.Mode = "heat"
-	case 3:
+	case 3, 0x13:
 		r.Mode = "windscreen"
 	}
 	r.raw = m.Data
