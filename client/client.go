@@ -5,10 +5,11 @@ package client
 import (
 	"encoding/hex"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/buxtronix/phev2mqtt/protocol"
 )
@@ -119,6 +120,7 @@ func (c *Client) RemoveListener(l *Listener) {
 
 // Close closes the client.
 func (c *Client) Close() error {
+	log.Info("Client closing.")
 	c.closed = true
 	if c.conn == nil {
 		return nil
@@ -177,7 +179,7 @@ func (c *Client) SetRegister(register byte, value []byte) error {
 		}
 	}
 	xor := byte(0)
-	timer := time.After(10 * time.Second)
+	timer := time.After(3 * time.Second)
 	l := c.AddListener()
 	defer c.RemoveListener(l)
 SETREG:
@@ -185,16 +187,20 @@ SETREG:
 	for {
 		select {
 		case <-timer:
+			c.Close()
 			return fmt.Errorf("timed out attempting to set register %02x", register)
 		case msg, ok := <-l.C:
 			if !ok {
+				c.Close()
 				return fmt.Errorf("listener channel closed")
 			}
 			if msg.Type == protocol.CmdInBadEncoding {
 				xor = msg.Data[0]
+				c.Close()
 				goto SETREG
 			}
 			if msg.Type == protocol.CmdInResp && msg.Ack == protocol.Ack && msg.Register == register {
+				log.Info("Settinge register successfull.")
 				return nil
 			}
 
