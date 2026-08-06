@@ -415,7 +415,6 @@ func (r *RegisterVIN) Decode(m *PhevMessage) {
 	r.VIN = string(m.Data[1:17])
 	r.Registrations = int(m.Data[19])
 	r.raw = m.Data
-	log.Infof("Read VIN from vehicle: %s (Registrations: %d)", r.VIN, r.Registrations)
 }
 
 func (r *RegisterVIN) Encode() *PhevMessage {
