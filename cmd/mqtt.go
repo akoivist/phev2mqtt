@@ -1367,6 +1367,11 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 			m.remoteWifiDisable()
 			m.powerSaveWifiOn = false
 		}
+		if m.phev != nil {
+			if err := m.phev.Close(); err != nil {
+				log.Debugf("PHEV client close during cleanup: %v", err)
+			}
+		}
 	}()
 
 	var err error
@@ -1467,12 +1472,16 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 					break
 				}
 				m.publishRegister(msg)
-				m.phev.Send <- &protocol.PhevMessage{
+				if err := m.phev.SendMessage(&protocol.PhevMessage{
 					Type:     protocol.CmdOutSend,
 					Register: msg.Register,
 					Ack:      protocol.Ack,
 					Xor:      msg.Xor,
 					Data:     []byte{0x0},
+				}); err != nil {
+					log.Infof("Error acknowledging register update: %v", err)
+					updaterTicker.Stop()
+					return err
 				}
 			}
 		}

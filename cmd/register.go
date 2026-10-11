@@ -93,12 +93,15 @@ func runRegister(cmd *cobra.Command, args []string) {
 					if reg, ok := msg.Reg.(*protocol.RegisterVIN); ok {
 						vinCh <- reg.VIN
 					}
-					cl.Send <- &protocol.PhevMessage{
+					if err := cl.SendMessage(&protocol.PhevMessage{
 						Type:     protocol.CmdOutSend,
 						Register: msg.Register,
 						Ack:      protocol.Ack,
 						Xor:      msg.Xor,
 						Data:     []byte{0x0},
+					}); err != nil {
+						log.Infof("Failed to acknowledge register response: %v", err)
+						return
 					}
 				}
 			}
