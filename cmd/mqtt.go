@@ -49,12 +49,12 @@ func validateVIN(vin string) error {
 	if vin == "" {
 		return nil // VIN is optional
 	}
-	
+
 	// VIN must be 16 or 17 characters (17 is ISO 3779 standard, some older vehicles use 16)
 	if len(vin) != 16 && len(vin) != 17 {
 		return fmt.Errorf("vehicle_vin must be 16 or 17 characters, got %d", len(vin))
 	}
-	
+
 	// VIN should only contain alphanumeric (excluding I, O, Q to avoid confusion with 1, 0)
 	// Convert to uppercase for validation
 	vinUpper := strings.ToUpper(vin)
@@ -63,7 +63,7 @@ func validateVIN(vin string) error {
 			return fmt.Errorf("vehicle_vin contains invalid character '%c' at position %d (must be A-Z, 0-9, excluding I, O, Q)", ch, i+1)
 		}
 	}
-	
+
 	log.Infof("VIN validated: %s (%d characters)", vin, len(vin))
 	return nil
 }
@@ -73,17 +73,17 @@ func validateMQTTMessage(message, messageName string) error {
 	if message == "" {
 		return nil // Empty is allowed (will use defaults)
 	}
-	
+
 	if len(message) > maxMQTTPayloadSize {
-		return fmt.Errorf("%s exceeds absolute maximum (%d bytes, max %d)", 
+		return fmt.Errorf("%s exceeds absolute maximum (%d bytes, max %d)",
 			messageName, len(message), maxMQTTPayloadSize)
 	}
-	
+
 	if len(message) > maxMQTTMessageSize {
-		log.Warnf("SECURITY WARNING: %s is large (%d bytes), consider keeping under %d bytes", 
+		log.Warnf("SECURITY WARNING: %s is large (%d bytes), consider keeping under %d bytes",
 			messageName, len(message), maxMQTTMessageSize)
 	}
-	
+
 	return nil
 }
 
@@ -92,22 +92,22 @@ func validateMQTTTopic(topic string, topicName string, allowWildcards bool) erro
 	if topic == "" {
 		return nil // Optional topics can be empty
 	}
-	
+
 	// Check length - MQTT spec allows up to 65535 bytes
 	if len(topic) > 65535 {
 		return fmt.Errorf("%s is too long (max 65535 bytes)", topicName)
 	}
-	
+
 	// Reasonable practical limit
 	if len(topic) > 512 {
 		log.Warnf("SECURITY WARNING: %s is very long (%d chars), this may be suspicious", topicName, len(topic))
 	}
-	
+
 	// Check for null bytes
 	if strings.Contains(topic, "\x00") {
 		return fmt.Errorf("%s contains null bytes", topicName)
 	}
-	
+
 	// Check for wildcards if not allowed
 	if !allowWildcards {
 		if strings.Contains(topic, "+") {
@@ -117,14 +117,14 @@ func validateMQTTTopic(topic string, topicName string, allowWildcards bool) erro
 			return fmt.Errorf("%s cannot contain multi-level wildcard (#)", topicName)
 		}
 	}
-	
+
 	// Check for invalid MQTT topic characters (control characters except tab)
 	for i, r := range topic {
 		if r < 0x20 && r != 0x09 { // Control chars except tab
 			return fmt.Errorf("%s contains invalid control character at position %d", topicName, i)
 		}
 	}
-	
+
 	// MQTT topics shouldn't start or end with /
 	if strings.HasPrefix(topic, "/") {
 		log.Warnf("SECURITY WARNING: %s starts with '/', this is unusual", topicName)
@@ -132,7 +132,7 @@ func validateMQTTTopic(topic string, topicName string, allowWildcards bool) erro
 	if strings.HasSuffix(topic, "/") && !strings.HasSuffix(topic, "/#") {
 		log.Warnf("SECURITY WARNING: %s ends with '/', this is unusual", topicName)
 	}
-	
+
 	// Check for suspicious patterns that might indicate injection
 	suspiciousPatterns := []string{
 		"${",
@@ -147,7 +147,7 @@ func validateMQTTTopic(topic string, topicName string, allowWildcards bool) erro
 			return fmt.Errorf("%s contains suspicious pattern: %q", topicName, pattern)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -157,28 +157,28 @@ func validateMQTTCredentials(server, password string) error {
 	if server == "" {
 		return fmt.Errorf("mqtt_server is required")
 	}
-	
+
 	// Check for valid protocol prefix
-	if !strings.HasPrefix(server, "tcp://") && 
-	   !strings.HasPrefix(server, "ssl://") && 
-	   !strings.HasPrefix(server, "tls://") && 
-	   !strings.HasPrefix(server, "ws://") && 
-	   !strings.HasPrefix(server, "wss://") {
+	if !strings.HasPrefix(server, "tcp://") &&
+		!strings.HasPrefix(server, "ssl://") &&
+		!strings.HasPrefix(server, "tls://") &&
+		!strings.HasPrefix(server, "ws://") &&
+		!strings.HasPrefix(server, "wss://") {
 		return fmt.Errorf("mqtt_server must start with tcp://, ssl://, tls://, ws://, or wss://")
 	}
-	
+
 	// Warn if using unencrypted connection
 	if strings.HasPrefix(server, "tcp://") || strings.HasPrefix(server, "ws://") {
-		log.Warnf("SECURITY WARNING: MQTT connection is not encrypted (using %s). Consider using ssl:// or tls://", 
+		log.Warnf("SECURITY WARNING: MQTT connection is not encrypted (using %s). Consider using ssl:// or tls://",
 			server[:6])
 	}
-	
+
 	// Extract and validate port
 	serverPart := server
 	if idx := strings.Index(server, "://"); idx != -1 {
 		serverPart = server[idx+3:]
 	}
-	
+
 	// Check for port
 	if strings.Contains(serverPart, ":") {
 		parts := strings.Split(serverPart, ":")
@@ -197,20 +197,20 @@ func validateMQTTCredentials(server, password string) error {
 			}
 		}
 	}
-	
+
 	// Validate MQTT password
 	if password == "" {
 		return fmt.Errorf("mqtt_password is required for security")
 	}
-	
+
 	if len(password) < 8 {
 		return fmt.Errorf("mqtt_password is too weak (minimum 8 characters required)")
 	}
-	
+
 	if len(password) < 12 {
 		log.Warnf("SECURITY WARNING: mqtt_password is short (<%d chars). Consider using at least 12 characters.", len(password))
 	}
-	
+
 	// Check for common weak passwords
 	weakPasswords := []string{
 		"password", "12345678", "123456789", "admin123", "password123",
@@ -221,7 +221,7 @@ func validateMQTTCredentials(server, password string) error {
 			return fmt.Errorf("mqtt_password is too weak (common password detected)")
 		}
 	}
-	
+
 	return nil
 }
 
@@ -304,12 +304,12 @@ func validateWifiRestartCommand(cmd string) error {
 	if cmd == "" {
 		return nil
 	}
-	
+
 	// Check for dangerous shell operators that could be used for command injection
 	dangerousPatterns := []string{
 		";", "|", "&", "$(", "`", ">", "<", "\n", "\r",
 	}
-	
+
 	for _, pattern := range dangerousPatterns {
 		if strings.Contains(cmd, pattern) {
 			// Allow && for chaining commands, but warn
@@ -320,12 +320,12 @@ func validateWifiRestartCommand(cmd string) error {
 			return fmt.Errorf("command contains potentially dangerous pattern: %q", pattern)
 		}
 	}
-	
+
 	// Check command length to prevent buffer issues
 	if len(cmd) > 1024 {
 		return fmt.Errorf("command too long (max 1024 characters)")
 	}
-	
+
 	return nil
 }
 
@@ -341,7 +341,7 @@ func restartWifi(cmd *cobra.Command, m *mqttClient) error {
 			log.Errorf("SECURITY: Command rejected to prevent potential command injection")
 			return err
 		}
-		
+
 		log.Infof("Attempting to restart local WiFi interface")
 		restartCmd := exec.Command("/bin/sh", "-c", restartCommand)
 		stdoutStderr, err := restartCmd.CombinedOutput()
@@ -520,6 +520,10 @@ type mqttClient struct {
 	haDiscoveryPrefix    string
 	haPublishedDiscovery bool
 	vehicleVIN           string
+	lastVIN              string
+	disableRegisterSet   bool
+	discoveryMu          sync.Mutex
+	recoveryMu           sync.Mutex
 
 	climate *climate
 	enabled bool
@@ -570,6 +574,107 @@ func (m *mqttClient) topic(topic string) string {
 	return fmt.Sprintf("%s%s", m.prefix, topic)
 }
 
+func mqttSubscriptionTopics(prefix, discoveryPrefix string, disableRegisterSet, haDiscovery bool) map[string]byte {
+	topics := map[string]byte{
+		prefix + "/connection": 0,
+		prefix + "/settings/#": 0,
+	}
+	if !disableRegisterSet {
+		topics[prefix+"/set/#"] = 0
+	}
+	if haDiscovery {
+		topics[strings.TrimSuffix(discoveryPrefix, "/")+"/status"] = 0
+	}
+	return topics
+}
+
+func isHomeAssistantBirthMessage(topic, payload, birthTopic string) bool {
+	return topic == birthTopic && strings.EqualFold(strings.TrimSpace(payload), "online")
+}
+
+func availabilityPayload(connected bool) string {
+	if connected {
+		return "online"
+	}
+	return "offline"
+}
+
+func discoveryVIN(configuredVIN, lastVIN string) string {
+	if configuredVIN != "" {
+		return configuredVIN
+	}
+	return lastVIN
+}
+
+func publishMQTT(client mqtt.Client, topic string, qos byte, retained bool, payload interface{}) error {
+	if client == nil {
+		return fmt.Errorf("MQTT client is not initialized")
+	}
+	token := client.Publish(topic, qos, retained, payload)
+	token.Wait()
+	return token.Error()
+}
+
+func (m *mqttClient) isConnected() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.connected
+}
+
+func (m *mqttClient) currentDiscoveryVIN() string {
+	m.discoveryMu.Lock()
+	defer m.discoveryMu.Unlock()
+	return discoveryVIN(m.vehicleVIN, m.lastVIN)
+}
+
+func (m *mqttClient) publishCurrentAvailability(client mqtt.Client) {
+	payload := availabilityPayload(m.isConnected())
+	if err := publishMQTT(client, m.topic("/available"), 0, true, payload); err != nil {
+		log.Errorf("Failed to publish availability status %q: %v", payload, err)
+	}
+}
+
+func (m *mqttClient) restoreMQTTState(client mqtt.Client) error {
+	m.recoveryMu.Lock()
+	defer m.recoveryMu.Unlock()
+
+	if client == nil || !client.IsConnected() {
+		return fmt.Errorf("broker disconnected before MQTT state restoration")
+	}
+
+	topics := mqttSubscriptionTopics(m.prefix, m.haDiscoveryPrefix, m.disableRegisterSet, m.haDiscovery)
+	token := client.SubscribeMultiple(topics, nil)
+	token.Wait()
+	err := token.Error()
+
+	m.republishMQTTState(client)
+	if err != nil {
+		return fmt.Errorf("failed to restore MQTT subscriptions: %w", err)
+	}
+	return nil
+}
+
+func (m *mqttClient) republishMQTTState(client mqtt.Client) {
+	m.publishCurrentAvailability(client)
+	vin := m.currentDiscoveryVIN()
+	if vin == "" {
+		return
+	}
+
+	if err := publishMQTT(client, m.topic("/vin"), 0, true, vin); err != nil {
+		log.Errorf("Failed to republish retained vehicle VIN: %v", err)
+	}
+	if m.haDiscovery {
+		m.publishHomeAssistantDiscoveryWithClient(client, vin, m.prefix, "Phev", true)
+	}
+}
+
+func (m *mqttClient) republishAfterHomeAssistantRestart(client mqtt.Client) {
+	m.recoveryMu.Lock()
+	defer m.recoveryMu.Unlock()
+	m.republishMQTTState(client)
+}
+
 // validateConfig validates configuration values and returns an error if any are invalid
 func (m *mqttClient) validateConfig() error {
 	// Validate MQTT server is set
@@ -583,12 +688,12 @@ func (m *mqttClient) validateConfig() error {
 		m.updateInterval = 5 * time.Minute
 	}
 	if m.updateInterval < minUpdateInterval {
-		log.Warnf("SECURITY: update_interval (%v) is below minimum (%v), enforcing minimum", 
+		log.Warnf("SECURITY: update_interval (%v) is below minimum (%v), enforcing minimum",
 			m.updateInterval, minUpdateInterval)
 		m.updateInterval = minUpdateInterval
 	}
 	if m.updateInterval > maxUpdateInterval {
-		log.Warnf("SECURITY: update_interval (%v) exceeds maximum (%v), enforcing maximum", 
+		log.Warnf("SECURITY: update_interval (%v) exceeds maximum (%v), enforcing maximum",
 			m.updateInterval, maxUpdateInterval)
 		m.updateInterval = maxUpdateInterval
 	}
@@ -706,7 +811,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 			lines := parseEnvFile(string(data))
 			validCount := 0
 			blockedCount := 0
-			
+
 			for key, value := range lines {
 				// SECURITY: Only allow whitelisted environment variables
 				if !isAllowedEnvVar(key) {
@@ -714,14 +819,14 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 					blockedCount++
 					continue
 				}
-				
+
 				// SECURITY: Sanitize value
 				value = sanitizeEnvValue(value)
-				
+
 				os.Setenv(key, value)
 				validCount++
 			}
-			
+
 			if blockedCount > 0 {
 				log.Warnf("SECURITY: Blocked %d unauthorized environment variables", blockedCount)
 			}
@@ -739,7 +844,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	if err := validateMQTTCredentials(mqttServer, mqttPassword); err != nil {
 		return fmt.Errorf("MQTT configuration validation failed: %w", err)
 	}
-	
+
 	// SECURITY: Validate MQTT topic prefix
 	if err := validateMQTTTopic(m.prefix, "mqtt_topic_prefix", false); err != nil {
 		return fmt.Errorf("invalid mqtt_topic_prefix: %w", err)
@@ -749,7 +854,8 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.haDiscovery = viper.GetBool("ha_discovery")
 	m.haDiscoveryPrefix = viper.GetString("ha_discovery_prefix")
 	m.vehicleVIN = viper.GetString("vehicle_vin")
-	
+	m.disableRegisterSet = mqttDisableSet
+
 	// SECURITY: Validate VIN format
 	if err := validateVIN(m.vehicleVIN); err != nil {
 		return fmt.Errorf("invalid vehicle_vin: %w", err)
@@ -767,7 +873,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.remoteWifiRestartEnabled = viper.GetBool("remote_wifi_restart_enabled")
 	m.remoteWifiRestartTopic = viper.GetString("remote_wifi_restart_topic")
 	m.remoteWifiRestartMessage = viper.GetString("remote_wifi_restart_message")
-	
+
 	// SECURITY: Validate MQTT topics and messages
 	if err := validateMQTTTopic(m.remoteWifiRestartTopic, "remote_wifi_restart_topic", false); err != nil {
 		return fmt.Errorf("invalid remote_wifi_restart_topic: %w", err)
@@ -780,7 +886,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	m.remoteWifiControlTopic = viper.GetString("remote_wifi_control_topic")
 	m.remoteWifiEnableMessage = viper.GetString("remote_wifi_enable_message")
 	m.remoteWifiDisableMessage = viper.GetString("remote_wifi_disable_message")
-	
+
 	// SECURITY: Validate MQTT topics and messages
 	if err := validateMQTTTopic(m.remoteWifiControlTopic, "remote_wifi_control_topic", false); err != nil {
 		return fmt.Errorf("invalid remote_wifi_control_topic: %w", err)
@@ -791,7 +897,7 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	if err := validateMQTTMessage(m.remoteWifiDisableMessage, "remote_wifi_disable_message"); err != nil {
 		return fmt.Errorf("invalid remote_wifi_disable_message: %w", err)
 	}
-	
+
 	m.remoteWifiPowerSaveEnabled = viper.GetBool("remote_wifi_power_save_enabled")
 	m.remoteWifiPowerSaveWait = viper.GetDuration("remote_wifi_power_save_wait")
 	if m.remoteWifiPowerSaveWait == 0 {
@@ -862,7 +968,10 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	m.discoveryMu.Lock()
 	m.haPublishedDiscovery = false
+	m.lastVIN = m.vehicleVIN
+	m.discoveryMu.Unlock()
 	m.lastError = nil
 
 	// Initialize configuration hot reload
@@ -876,6 +985,12 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 	log.Infof("MQTT username: %s", mqttUsername)
 	log.Infof("MQTT topic prefix: %s", m.prefix)
 
+	m.mqttData = map[string]string{}
+	m.connectedCh = make(chan struct{}, 1)
+	m.commandWake = make(chan struct{}, 1)
+	initialRestore := make(chan error, 1)
+	var initialRestoreOnce sync.Once
+
 	m.options = mqtt.NewClientOptions().
 		AddBroker(mqttServer).
 		SetClientID("phev2mqtt").
@@ -883,6 +998,15 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		SetPassword(mqttPassword).
 		SetAutoReconnect(true).
 		SetDefaultPublishHandler(m.handleIncomingMqtt).
+		SetOnConnectHandler(func(client mqtt.Client) {
+			err := m.restoreMQTTState(client)
+			if err != nil {
+				log.Errorf("Failed to restore MQTT state after broker connection: %v", err)
+			}
+			initialRestoreOnce.Do(func() {
+				initialRestore <- err
+			})
+		}).
 		SetWill(m.topic("/available"), "offline", 0, true)
 
 	m.client = mqtt.NewClient(m.options)
@@ -891,35 +1015,17 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		return token.Error()
 	}
 	log.Infof("Successfully connected to MQTT broker")
-
-	if !mqttDisableSet {
-		log.Infof("Subscribing to topic: %s", m.topic("/set/#"))
-		if token := m.client.Subscribe(m.topic("/set/#"), 0, nil); token.Wait() && token.Error() != nil {
-			return token.Error()
+	select {
+	case err := <-initialRestore:
+		if err != nil {
+			return err
 		}
-	} else {
+	case <-time.After(30 * time.Second):
+		return fmt.Errorf("timed out restoring MQTT state after broker connection")
+	}
+
+	if m.disableRegisterSet {
 		log.Info("Setting vechicle registers via MQTT is disabled")
-	}
-	log.Infof("Subscribing to topic: %s", m.topic("/connection"))
-	if token := m.client.Subscribe(m.topic("/connection"), 0, nil); token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
-	log.Infof("Subscribing to topic: %s", m.topic("/settings/#"))
-	if token := m.client.Subscribe(m.topic("/settings/#"), 0, nil); token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
-	log.Infof("MQTT subscriptions complete")
-
-	m.mqttData = map[string]string{}
-	m.connectedCh = make(chan struct{}, 1)
-	m.commandWake = make(chan struct{}, 1)
-
-	// Publish Home Assistant discovery immediately if VIN is configured
-	if m.vehicleVIN != "" {
-		log.Infof("Publishing Home Assistant discovery using configured VIN: %s", m.vehicleVIN)
-		m.publishHomeAssistantDiscovery(m.vehicleVIN, m.prefix, "Phev")
-		// Still publish VIN to MQTT topic
-		m.client.Publish(m.topic("/vin"), 0, true, m.vehicleVIN)
 	}
 
 	log.Infof("[Main Loop] Initial client enabled state: %v", m.enabled)
@@ -1007,8 +1113,25 @@ func (m *mqttClient) publish(topic, payload string) {
 	m.mqttData[topic] = payload
 }
 
+func (m *mqttClient) publishRetained(topic, payload string) {
+	if cache := m.mqttData[topic]; cache == payload {
+		return
+	}
+	if err := publishMQTT(m.client, m.topic(topic), 0, true, payload); err != nil {
+		log.Errorf("Failed to publish retained MQTT topic %s: %v", m.topic(topic), err)
+		return
+	}
+	m.mqttData[topic] = payload
+}
+
 func (m *mqttClient) handleIncomingMqtt(mqtt_client mqtt.Client, msg mqtt.Message) {
 	log.Infof("Topic: [%s] Payload: [%s]", msg.Topic(), msg.Payload())
+
+	birthTopic := strings.TrimSuffix(m.haDiscoveryPrefix, "/") + "/status"
+	if m.haDiscovery && isHomeAssistantBirthMessage(msg.Topic(), string(msg.Payload()), birthTopic) {
+		go m.republishAfterHomeAssistantRestart(mqtt_client)
+		return
+	}
 
 	topicParts := strings.Split(msg.Topic(), "/")
 	if strings.HasPrefix(msg.Topic(), m.topic("/set/register/")) {
@@ -1252,7 +1375,7 @@ func (m *mqttClient) onConfigReload() {
 	m.remoteWifiRestartEnabled = viper.GetBool("remote_wifi_restart_enabled")
 	m.remoteWifiRestartTopic = viper.GetString("remote_wifi_restart_topic")
 	m.remoteWifiRestartMessage = viper.GetString("remote_wifi_restart_message")
-	
+
 	// SECURITY: Validate MQTT topics and messages (log warning on reload, don't fail)
 	if err := validateMQTTTopic(m.remoteWifiRestartTopic, "remote_wifi_restart_topic", false); err != nil {
 		log.Errorf("Invalid remote_wifi_restart_topic after reload: %v", err)
@@ -1265,7 +1388,7 @@ func (m *mqttClient) onConfigReload() {
 	m.remoteWifiControlTopic = viper.GetString("remote_wifi_control_topic")
 	m.remoteWifiEnableMessage = viper.GetString("remote_wifi_enable_message")
 	m.remoteWifiDisableMessage = viper.GetString("remote_wifi_disable_message")
-	
+
 	// SECURITY: Validate MQTT topics and messages (log warning on reload, don't fail)
 	if err := validateMQTTTopic(m.remoteWifiControlTopic, "remote_wifi_control_topic", false); err != nil {
 		log.Errorf("Invalid remote_wifi_control_topic after reload: %v", err)
@@ -1276,7 +1399,7 @@ func (m *mqttClient) onConfigReload() {
 	if err := validateMQTTMessage(m.remoteWifiDisableMessage, "remote_wifi_disable_message"); err != nil {
 		log.Errorf("Invalid remote_wifi_disable_message after reload: %v", err)
 	}
-	
+
 	m.remoteWifiPowerSaveEnabled = viper.GetBool("remote_wifi_power_save_enabled")
 	m.remoteWifiPowerSaveWait = viper.GetDuration("remote_wifi_power_save_wait")
 	if m.remoteWifiPowerSaveWait == 0 {
@@ -1399,9 +1522,9 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to start PHEV client: %w", err)
 	}
 	log.Infof("PHEV client started successfully")
-	m.client.Publish(m.topic("/available"), 0, true, "online")
-	log.Infof("Published availability status: online")
 	m.setConnected(true)
+	m.publishCurrentAvailability(m.client)
+	log.Infof("Published availability status: online")
 
 	// Request an immediate update so HA entities get state before any power-save disconnect.
 	if err := m.phev.SetRegister(0x6, []byte{0x3}); err != nil {
@@ -1502,7 +1625,10 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 	m.publish(fmt.Sprintf("/register/%02x", msg.Register), dataStr)
 	switch reg := msg.Reg.(type) {
 	case *protocol.RegisterVIN:
-		m.publish("/vin", reg.VIN)
+		m.discoveryMu.Lock()
+		m.lastVIN = reg.VIN
+		m.discoveryMu.Unlock()
+		m.publishRetained("/vin", reg.VIN)
 		m.publishHomeAssistantDiscovery(reg.VIN, m.prefix, "Phev")
 		m.publish("/registrations", fmt.Sprintf("%d", reg.Registrations))
 	case *protocol.RegisterECUVersion:
@@ -1574,21 +1700,25 @@ func (m *mqttClient) publishRegister(msg *protocol.PhevMessage) {
 // Publish home assistant discovery message.
 // Uses the vehicle VIN, so sent after VIN discovery.
 func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
+	m.publishHomeAssistantDiscoveryWithClient(m.client, vin, topic, name, false)
+}
+
+func (m *mqttClient) publishHomeAssistantDiscoveryWithClient(client mqtt.Client, vin, topic, name string, force bool) {
+	m.discoveryMu.Lock()
+	defer m.discoveryMu.Unlock()
 
 	if !m.haDiscovery {
 		log.Debugf("[HA Discovery] Home Assistant discovery disabled, skipping")
 		return
 	}
 
-	// Only publish once, unless VIN changes (e.g., configured VIN differs from actual VIN)
-	if m.haPublishedDiscovery {
+	if m.haPublishedDiscovery && !force {
 		log.Debugf("[HA Discovery] Discovery already published, skipping")
 		if m.vehicleVIN != "" && m.vehicleVIN != vin {
 			log.Warnf("[HA Discovery] VIN from PHEV (%s) differs from configured VIN (%s) - not republishing discovery", vin, m.vehicleVIN)
 		}
 		return
 	}
-	m.haPublishedDiscovery = true
 
 	log.Infof("[HA Discovery] Publishing Home Assistant discovery for VIN: %s", vin)
 	log.Infof("[HA Discovery] Discovery prefix: %s, MQTT topic prefix: %s", m.haDiscoveryPrefix, topic)
@@ -2011,8 +2141,8 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 		for in, out := range mappings {
 			d = strings.Replace(d, in, out, -1)
 		}
-		if token := m.client.Publish(topic, 0, true, d); token.Wait() && token.Error() != nil {
-			log.Errorf("[HA Discovery] Failed to publish to %s: %v", topic, token.Error())
+		if err := publishMQTT(client, topic, 0, true, d); err != nil {
+			log.Errorf("[HA Discovery] Failed to publish to %s: %v", topic, err)
 			errorCount++
 		} else {
 			log.Debugf("[HA Discovery] Published: %s", topic)
@@ -2022,6 +2152,9 @@ func (m *mqttClient) publishHomeAssistantDiscovery(vin, topic, name string) {
 	}
 
 	log.Infof("[HA Discovery] Complete - %d entities published successfully, %d errors", successCount, errorCount)
+	if errorCount == 0 {
+		m.haPublishedDiscovery = true
+	}
 }
 
 func init() {
