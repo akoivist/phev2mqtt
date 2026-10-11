@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>phev2mqtt</Name>
-  <Repository>ghcr.io/stefanh12/phev2mqtt:latest</Repository>
-  <Registry>https://github.com/stefanh12/phev2mqtt/pkgs/container/phev2mqtt</Registry>
+  <Repository>ghcr.io/akoivist/phev2mqtt:unraid</Repository>
+  <Registry>https://github.com/akoivist/phev2mqtt/pkgs/container/phev2mqtt</Registry>
   <Branch>
-    <Tag>latest</Tag>
-    <TagDescription>Latest stable release</TagDescription>
+    <Tag>unraid</Tag>
+    <TagDescription>Latest Unraid branch build</TagDescription>
   </Branch>
   <Network>bridge</Network>
   <MyIP></MyIP>
