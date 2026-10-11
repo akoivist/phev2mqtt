@@ -259,7 +259,7 @@ echo "Starting phev2mqtt with log level: $LOG_LEVEL"
 if [[ $CONNECT_phev_register == "true" ]]
 then
 	echo "Registering client with PHEV"
-	exec /usr/src/app/phev2mqtt/phev2mqtt client register --verbosity "$LOG_LEVEL"
+	exec /usr/local/bin/phev2mqtt client register --verbosity "$LOG_LEVEL"
 else
     echo "Starting phev2mqtt with log level: $LOG_LEVEL"
     
@@ -294,7 +294,8 @@ else
     [[ -n "$CONNECT_remote_wifi_enable_message" ]] && CMD_ARGS+=(--remote_wifi_enable_message "$CONNECT_remote_wifi_enable_message")
     [[ -n "$CONNECT_remote_wifi_disable_message" ]] && CMD_ARGS+=(--remote_wifi_disable_message "$CONNECT_remote_wifi_disable_message")
     [[ "$CONNECT_remote_wifi_power_save_enabled" == "true" ]] && CMD_ARGS+=(--remote_wifi_power_save_enabled)
-    [[ -n "$CONNECT_remote_wifi_power_save_wait" ]] && CMD_ARGS+=(--remote_wifi_power_save_wait "$CONNECT_remote_wifi_power_save_wait")    [[ -n "$CONNECT_remote_wifi_power_save_duration" ]] && CMD_ARGS+=(--remote_wifi_power_save_duration "$CONNECT_remote_wifi_power_save_duration")
+    [[ -n "$CONNECT_remote_wifi_power_save_wait" ]] && CMD_ARGS+=(--remote_wifi_power_save_wait "$CONNECT_remote_wifi_power_save_wait")
+    [[ -n "$CONNECT_remote_wifi_power_save_duration" ]] && CMD_ARGS+=(--remote_wifi_power_save_duration "$CONNECT_remote_wifi_power_save_duration")
     [[ -n "$CONNECT_remote_wifi_command_wait" ]] && CMD_ARGS+=(--remote_wifi_command_wait "$CONNECT_remote_wifi_command_wait")
     
     # Add advanced timeout settings if set
@@ -309,5 +310,5 @@ else
     [[ -n "$CONNECT_config_reload_interval" ]] && CMD_ARGS+=(--config_reload_interval "$CONNECT_config_reload_interval")    
     [[ -n "$CONNECT_extra_add" ]] && CMD_ARGS+=($CONNECT_extra_add)
     
-    exec /usr/src/app/phev2mqtt/phev2mqtt "${CMD_ARGS[@]}"
+    exec /usr/local/bin/phev2mqtt "${CMD_ARGS[@]}"
 fi

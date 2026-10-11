@@ -1,32 +1,28 @@
-FROM golang:alpine
+FROM golang:1.24-alpine AS build
 
-WORKDIR /usr/src/app
-COPY .  /usr/src/app
-RUN apk update && apk add --no-cache \
-	g++ \
-	gcc \
-	git \
-	bash \
-	libpcap-dev
-RUN git clone https://github.com/stefanh12/phev2mqtt.git
-COPY --from=golang:alpine /usr/local/go/ /usr/local/go/
+WORKDIR /src
 
+RUN apk add --no-cache gcc g++ git bash libpcap-dev
+
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
-RUN cd /usr/src/app/phev2mqtt && \
-    /usr/local/go/bin/go build
-RUN apk update && apk add --no-cache \
-	libpcap-dev
+RUN go build -o /out/phev2mqtt .
 
+FROM alpine:3.24
+
+RUN apk add --no-cache bash libpcap-dev
+
+COPY --from=build /out/phev2mqtt /usr/local/bin/phev2mqtt
 COPY unraid/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-ENV  mqtt_server 192.168.1.1:1883
-ENV  mqtt_user user
-ENV  mqtt_password password
-ENV  phev_register false
-ENV  debug true
-ENV  extraarg true
-
+ENV mqtt_server=192.168.1.1:1883 \
+    mqtt_user=user \
+    mqtt_password=password \
+    phev_register=false \
+    debug=true \
+    extraarg=true
 
 ENTRYPOINT ["bash", "/entrypoint.sh"]
