@@ -25,7 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wercker/journalhook"
 )
 
 var (
@@ -59,13 +58,13 @@ func validateConfigPath(cfgFile string) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("config file must be a regular file, not a directory or special file")
 	}
-	
+
 	// Check file size (prevent reading huge files that could cause DoS)
 	const maxConfigFileSize = 1048576 // 1MB
 	if info.Size() > maxConfigFileSize {
 		return fmt.Errorf("config file too large (max 1MB)")
 	}
-	
+
 	return nil
 }
 
@@ -89,7 +88,7 @@ var rootCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Invalid log level '%s', using 'info'. Valid levels: panic, fatal, error, warning, info, debug, trace\n", logLevel)
 			logLevel = "info"
 		}
-		
+
 		level, err := log.ParseLevel(logLevel)
 		if err != nil {
 			// Should not happen after validation, but handle gracefully
@@ -99,7 +98,7 @@ var rootCmd = &cobra.Command{
 			log.SetLevel(level)
 		}
 		if logSyslog {
-			journalhook.Enable()
+			enableJournalLogging()
 		}
 		if logTimes {
 			log.SetFormatter(&log.TextFormatter{
