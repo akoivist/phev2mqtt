@@ -1594,18 +1594,20 @@ func (m *mqttClient) handlePhev(cmd *cobra.Command) error {
 				if msg.Ack != protocol.Request {
 					break
 				}
-				m.publishRegister(msg)
-				if err := m.phev.SendMessage(&protocol.PhevMessage{
+				ackErr := m.phev.SendMessage(&protocol.PhevMessage{
 					Type:     protocol.CmdOutSend,
 					Register: msg.Register,
 					Ack:      protocol.Ack,
 					Xor:      msg.Xor,
 					Data:     []byte{0x0},
-				}); err != nil {
-					log.Infof("Error acknowledging register update: %v", err)
+				})
+				m.publishRegister(msg)
+				if ackErr != nil {
+					log.Infof("Error acknowledging register update: %v", ackErr)
 					updaterTicker.Stop()
-					return err
+					return ackErr
 				}
+
 			}
 		}
 	}
