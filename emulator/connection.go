@@ -28,7 +28,7 @@ func NewConnection(conn net.Conn, car *Car) *Connection {
 		car:   car,
 		conn:  conn,
 		key:   &protocol.SecurityKey{},
-		Send:  make(chan *protocol.PhevMessage, 5),
+		Send:  make(chan *protocol.PhevMessage, 256),
 
 		listeners: []*client.Listener{},
 	}

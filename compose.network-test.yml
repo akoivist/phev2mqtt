@@ -1,0 +1,88 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: phev-network-test-mqtt
+    command: ["mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]
+    volumes:
+      - ./scripts/network-test/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks:
+      mqtt-test:
+        aliases:
+          - mqtt
+    ports:
+      - "18884:1883"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -p 1883 -t health -m ok"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  vehicle-emulator:
+    build:
+      context: .
+      dockerfile: unraid/Dockerfile
+    container_name: phev-network-test-vehicle
+    entrypoint: ["/usr/local/bin/phev2mqtt"]
+    command: ["emulator", "--address", "0.0.0.0:8080", "--mqtt_server", "", "--verbosity", "debug"]
+    networks:
+      vehicle-test:
+        aliases:
+          - vehicle-emulator
+    expose:
+      - "8080"
+
+  phev2mqtt:
+    build:
+      context: .
+      dockerfile: unraid/Dockerfile
+    container_name: phev-network-test-gateway
+    entrypoint: ["/usr/local/bin/phev2mqtt"]
+    command:
+      - "client"
+      - "mqtt"
+      - "--verbosity"
+      - "debug"
+      - "--mqtt_server"
+      - "tcp://mqtt:1883/"
+      - "--mqtt_username"
+      - "test"
+      - "--mqtt_password"
+      - "test-password-123"
+      - "--address"
+      - "vehicle-emulator:8080"
+      - "--ha_discovery"
+      - "true"
+      - "--vehicle_vin"
+      - "TESTVAN123456789"
+      - "--update_interval"
+      - "30s"
+      - "--connection_retry_interval"
+      - "2s"
+      - "--phev_start_timeout"
+      - "5s"
+      - "--phev_tcp_read_timeout"
+      - "5s"
+      - "--phev_tcp_write_timeout"
+      - "5s"
+      - "--availability_offline_timeout"
+      - "2s"
+    depends_on:
+      mqtt:
+        condition: service_healthy
+      vehicle-emulator:
+        condition: service_started
+    networks:
+      mqtt-test:
+        aliases:
+          - phev2mqtt
+      vehicle-test:
+        aliases:
+          - phev2mqtt
+
+networks:
+  mqtt-test:
+    name: phev-network-test-mqtt
+    driver: bridge
+  vehicle-test:
+    name: phev-network-test-vehicle
+    driver: bridge

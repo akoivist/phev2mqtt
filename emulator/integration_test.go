@@ -22,7 +22,7 @@ func TestEmulatorPingIntegration(t *testing.T) {
 		t.Fatalf("Car.Begin() returned unexpected error: %v", err)
 	}
 
-	conn := dialWhenReady(t, address)
+	conn := waitForEmulator(t, address)
 	defer conn.Close()
 
 	key := &protocol.SecurityKey{}
@@ -46,8 +46,7 @@ func TestEmulatorRegisterAckIntegration(t *testing.T) {
 	if err := car.Begin(); err != nil {
 		t.Fatalf("Car.Begin() returned unexpected error: %v", err)
 	}
-
-	conn := dialWhenReady(t, address)
+	conn := waitForEmulator(t, address)
 	defer conn.Close()
 
 	key := &protocol.SecurityKey{}
@@ -64,20 +63,31 @@ func TestEmulatorRegisterAckIntegration(t *testing.T) {
 	}
 }
 
-func dialWhenReady(t *testing.T, address string) net.Conn {
+func waitForEmulator(t *testing.T, address string) net.Conn {
 	t.Helper()
 
 	deadline := time.Now().Add(time.Second)
-	for {
+	for time.Now().Before(deadline) {
 		conn, err := net.DialTimeout("tcp", address, 50*time.Millisecond)
 		if err == nil {
-			return conn
+			key := &protocol.SecurityKey{}
+			if _, err := conn.Write(protocol.NewPingRequestMessage(0x1).EncodeToBytes(key)); err == nil {
+				if err := conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err == nil {
+					response := make([]byte, 6)
+					if _, err := io.ReadFull(conn, response); err == nil {
+						messages := protocol.NewFromBytes(response, key)
+						if len(messages) == 1 && messages[0].Type == protocol.CmdInPingResp {
+							return conn
+						}
+					}
+				}
+			}
+			_ = conn.Close()
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("emulator did not become ready: %v", err)
-		}
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
+	t.Fatalf("emulator did not pass the protocol readiness check")
+	return nil
 }
 
 func writeMessage(t *testing.T, conn net.Conn, message *protocol.PhevMessage, key *protocol.SecurityKey) {

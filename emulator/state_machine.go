@@ -21,7 +21,7 @@ func (s *Connection) manage() {
 				// Ping request from client.
 				pingCount++
 				s.Send <- protocol.NewPingResponseMessage(msg.Register)
-				if s.key.State == protocol.SecurityEmpty && pingCount == 10 {
+				if s.key.State == protocol.SecurityEmpty && pingCount == 6 {
 					// Establish initial key after 10th ping.
 					s.state = conSecInit
 					s.rekey()

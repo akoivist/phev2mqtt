@@ -164,7 +164,7 @@ func RegisterTimeoutOption(timeout time.Duration) func(*Client) {
 // New returns a new client, not yet connected.
 func New(opts ...Option) (*Client, error) {
 	cl := &Client{
-		Recv:            make(chan *protocol.PhevMessage, 5),
+		Recv:            make(chan *protocol.PhevMessage, 256),
 		Send:            make(chan *protocol.PhevMessage, 5),
 		Settings:        &protocol.Settings{},
 		started:         make(chan struct{}, 2),

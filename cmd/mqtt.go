@@ -497,11 +497,15 @@ func (m *mqttClient) waitForConnection(timeout time.Duration) bool {
 
 func (m *mqttClient) ensureConnectedForCommand() bool {
 	m.ensureWifiOn()
-	if m.waitForConnection(m.remoteWifiPowerSaveWait + m.phevStartTimeout + 5*time.Second) {
-		return true
+
+	m.mu.RLock()
+	connected := m.connected
+	m.mu.RUnlock()
+	if !connected || m.phev == nil {
+		log.Warnf("Command rejected: PHEV is not connected; command will not be queued")
+		return false
 	}
-	log.Warnf("Command requested but PHEV connection not ready")
-	return false
+	return true
 }
 
 type mqttClient struct {
@@ -656,16 +660,38 @@ func (m *mqttClient) restoreMQTTState(client mqtt.Client) error {
 
 func (m *mqttClient) republishMQTTState(client mqtt.Client) {
 	m.publishCurrentAvailability(client)
+
 	vin := m.currentDiscoveryVIN()
-	if vin == "" {
-		return
+	if vin != "" {
+		if err := publishMQTT(client, m.topic("/vin"), 0, true, vin); err != nil {
+			log.Errorf("Failed to republish retained vehicle VIN: %v", err)
+		}
+		if m.haDiscovery {
+			m.publishHomeAssistantDiscoveryWithClient(client, vin, m.prefix, "Phev", true)
+		}
 	}
 
-	if err := publishMQTT(client, m.topic("/vin"), 0, true, vin); err != nil {
-		log.Errorf("Failed to republish retained vehicle VIN: %v", err)
+	m.republishCachedVehicleState(client)
+
+	// The vehicle may be unavailable while MQTT or Home Assistant restarts.
+	// Request a fresh snapshot only when the existing PHEV session is active.
+	if m.isConnected() && m.phev != nil {
+		if err := m.phev.SetRegister(0x6, []byte{0x3}); err != nil {
+			log.Warnf("[MQTT] Could not request vehicle state after MQTT recovery: %v", err)
+		}
 	}
-	if m.haDiscovery {
-		m.publishHomeAssistantDiscoveryWithClient(client, vin, m.prefix, "Phev", true)
+}
+
+func (m *mqttClient) republishCachedVehicleState(client mqtt.Client) {
+	for topic, payload := range m.mqttData {
+		if topic == "/available" || topic == "/vin" || payload == "" {
+			continue
+		}
+		if err := publishMQTT(client, m.topic(topic), 0, false, payload); err != nil {
+			log.Errorf("[MQTT] Failed to republish cached state %s: %v", m.topic(topic), err)
+			continue
+		}
+		log.Debugf("[MQTT] Republished cached state %s", m.topic(topic))
 	}
 }
 
@@ -998,10 +1024,19 @@ func (m *mqttClient) Run(cmd *cobra.Command, args []string) error {
 		SetPassword(mqttPassword).
 		SetAutoReconnect(true).
 		SetDefaultPublishHandler(m.handleIncomingMqtt).
+		SetConnectionLostHandler(func(client mqtt.Client, err error) {
+			log.Errorf("[MQTT] Connection lost: %v", err)
+		}).
+		SetReconnectingHandler(func(client mqtt.Client, options *mqtt.ClientOptions) {
+			log.Infof("[MQTT] Reconnecting to broker")
+		}).
 		SetOnConnectHandler(func(client mqtt.Client) {
+			log.Infof("[MQTT] Connected to broker, restoring subscriptions and state")
 			err := m.restoreMQTTState(client)
 			if err != nil {
 				log.Errorf("Failed to restore MQTT state after broker connection: %v", err)
+			} else {
+				log.Infof("[MQTT] State restoration complete")
 			}
 			initialRestoreOnce.Do(func() {
 				initialRestore <- err
@@ -1109,7 +1144,11 @@ func (m *mqttClient) publish(topic, payload string) {
 	if cache := m.mqttData[topic]; cache == payload {
 		return
 	}
-	m.client.Publish(m.topic(topic), 0, false, payload)
+	token := m.client.Publish(m.topic(topic), 0, false, payload)
+	if token.Wait() && token.Error() != nil {
+		log.Errorf("Failed to publish MQTT state %s: %v", m.topic(topic), token.Error())
+		return
+	}
 	m.mqttData[topic] = payload
 }
 
